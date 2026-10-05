@@ -18,9 +18,15 @@ jobs:
 
       - name: Install Theos and Dependencies
         run: |
-          brew install ldid dpkg optool
+          brew install ldid dpkg
           git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+
+          # Install optool from binary release
+          curl -sL "https://github.com/alexzielenski/optool/releases/download/0.1/optool.zip" -o optool.zip
+          unzip -q optool.zip
+          chmod +x optool
+          sudo cp optool /usr/local/bin/ || sudo cp optool /opt/homebrew/bin/ || cp optool ~/theos/bin/ || true
 
       - name: Compile Larpgram Tweak
         run: |
