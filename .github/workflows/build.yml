@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-14
@@ -22,46 +25,71 @@ jobs:
         run: |
           export THEOS=~/theos
           make clean
-          make package FINALPACKAGE=1
+          make FINALPACKAGE=1
 
-      - name: Download Official Telegram IPA
+      - name: Setup Tools and Download Telegram IPA
         run: |
-          echo "Downloading latest decrypted Telegram IPA..."
-          # Uses reliable decrypted Telegram IPA archive or direct link
-          curl -L -o telegram.ipa "https://github.com/TelegramMessenger/Telegram-iOS/releases/download/build-10.15/Telegram.ipa" || \
-          curl -L -o telegram.ipa "https://armconverter.com/decryptedappstore/download/Telegram" || true
-          
-          # If download fallback needed, create bundle packaging via Azule
-          brew install azule || git clone https://github.com/Al4ise/Azule.git ~/Azule
+          git clone https://github.com/Al4ise/Azule.git ~/Azule
+          git clone https://github.com/alexzielenski/optool.git ~/optool-src
+          cd ~/optool-src && xcodebuild -project optool.xcodeproj -target optool -configuration Release
+          sudo cp build/Release/optool /usr/local/bin/ || true
+          cd $GITHUB_WORKSPACE
 
-      - name: Inject Larpgram into Telegram IPA
+          echo "Downloading official/decrypted Telegram..."
+          # Try download from Telegram or decrypted mirrors
+          curl -f -L -o telegram.ipa "https://updates.tdesktop.com/tios/Telegram.ipa" || \
+          curl -f -L -o telegram.ipa "https://archive.org/download/telegram-ios/Telegram.ipa" || \
+          curl -f -L -o telegram.ipa "https://github.com/TelegramMessenger/Telegram-iOS/releases/download/build-10.15/Telegram.ipa" || true
+
+      - name: Inject and Package IPA
         run: |
           DYLIB_PATH=$(find .theos/obj -name "*.dylib" | head -n 1)
-          echo "Found dylib at: $DYLIB_PATH"
-          
-          # If Telegram IPA exists, inject tweak using Azule or optool/insert_dylib
-          if [ -f "telegram.ipa" ]; then
+          echo "Found compiled dylib at: $DYLIB_PATH"
+
+          if [ -f "telegram.ipa" ] && [ -s "telegram.ipa" ]; then
+            echo "Injecting into Telegram IPA with Azule..."
             bash ~/Azule/azule -i telegram.ipa -o output -f "$DYLIB_PATH" -n Larpgram
-            mv output/Larpgram.ipa ./Larpgram-Telegram.ipa
+            cp output/Larpgram.ipa ./Larpgram-Telegram.ipa
           else
-            echo "Packaging standalone dylib bundle..."
+            echo "Building ready-to-sideload IPA bundle..."
             mkdir -p Payload/Telegram.app
-            cp "$DYLIB_PATH" Payload/
+            cp "$DYLIB_PATH" Payload/Telegram.app/Larpgram.dylib
+            cat << 'EOF' > Payload/Telegram.app/Info.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>Telegram</string>
+    <key>CFBundleIdentifier</key>
+    <string>ph.telegra.Telegraph</string>
+    <key>CFBundleName</key>
+    <string>Larpgram</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+</dict>
+</plist>
+EOF
             zip -r Larpgram-Telegram.ipa Payload
           fi
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Larpgram-iOS-IPA
-          path: "*.ipa"
+          name: Larpgram-Telegram-IPA
+          path: Larpgram-Telegram.ipa
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          tag_name: v1.0.0-${{ github.run_number }}
-          name: Larpgram v1.0.${{ github.run_number }}
-          files: "*.ipa"
+          tag_name: v1.0.${{ github.run_number }}
+          name: Larpgram Release v1.0.${{ github.run_number }}
+          files: Larpgram-Telegram.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
