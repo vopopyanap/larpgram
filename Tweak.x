@@ -4,14 +4,19 @@
 @interface LarpgramSettingsViewController : UITableViewController
 @end
 
-// Declarations of Telegram internals for hooking
-@interface TGPeerInfoController : UIViewController
+// Declarations of Telegram controllers & models
+@interface TGSettingsController : UIViewController
+- (void)openLarpgramSettings;
 @end
 
 @interface TGUser : NSObject
 @property (nonatomic, strong) NSString *phoneNumber;
 @property (nonatomic, strong) NSString *username;
 @property (nonatomic, strong) NSArray *usernames;
+@end
+
+@interface ProfileGiftsContext : NSObject
+- (id)gifts;
 @end
 
 // Hooking Telegram Settings Screen to insert Larpgram Settings Row
@@ -54,8 +59,6 @@
     if (config.isEnabled && config.spoofUsernames && config.fakeUsernames.count > 0) {
         NSMutableArray *combined = [NSMutableArray arrayWithArray:orig ?: @[]];
         for (NSString *u in config.fakeUsernames) {
-            // Check if collectible username dictionary or object structure
-            // In Telegram iOS, usernames list contains objects with {username, isCollectible, isActive}
             [combined addObject:@{
                 @"username": u,
                 @"isCollectible": @(YES),
@@ -74,11 +77,6 @@
 
 - (id)gifts {
     id orig = %orig;
-    LarpgramConfig *config = [LarpgramConfig shared];
-    if (config.isEnabled && config.spoofGifts && config.fakeGifts.count > 0) {
-        // Here we inject custom NFT gifts into the returned stream
-        return orig;
-    }
     return orig;
 }
 
