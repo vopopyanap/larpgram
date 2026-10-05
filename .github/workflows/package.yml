@@ -19,14 +19,17 @@ jobs:
       - name: Set up Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl wget unzip zip libtinfo6 build-essential
+          sudo apt-get install -y curl wget unzip zip libtinfo6 build-essential git
 
       - name: Install Theos and iOS SDK
         run: |
           git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
-          mkdir -p "$HOME/theos/sdks"
-          curl -sL "https://github.com/theos/sdks/releases/download/16.5/iPhoneOS16.5.sdk.tar.xz" | tar -xJ -C "$HOME/theos/sdks" || true
+          
+          # Clone official Theos SDKs
+          git clone --depth 1 https://github.com/theos/sdks.git "$HOME/theos/sdks-repo"
+          cp -r $HOME/theos/sdks-repo/*.sdk "$HOME/theos/sdks/" || true
+          ls -la "$HOME/theos/sdks"
 
       - name: Compile Larpgram Tweak
         run: |
