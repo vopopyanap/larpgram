@@ -1,56 +1,49 @@
-name: Build Larpgram IPA
+name: Larpgram Build
 
 on:
   push:
-    branches:
-      - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  build-ipa:
     runs-on: macos-14
-    permissions:
-      contents: write
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Theos and Dependencies
+      - name: Setup Theos
         run: |
           brew install ldid dpkg
-          git clone --recursive https://github.com/theos/theos.git ~/theos
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
 
-      - name: Compile Larpgram Tweak (.dylib)
+      - name: Build Tweak
         run: |
-          export THEOS=$HOME/theos
+          export THEOS="$HOME/theos"
           make clean
           make FINALPACKAGE=1
 
-      - name: Setup Tools and Download Telegram IPA
+      - name: Download Telegram IPA
         run: |
-          git clone https://github.com/Al4ise/Azule.git ~/Azule
-          git clone https://github.com/alexzielenski/optool.git ~/optool-src
-          cd ~/optool-src && xcodebuild -project optool.xcodeproj -target optool -configuration Release
-          sudo cp build/Release/optool /usr/local/bin/ || true
-          cd "$GITHUB_WORKSPACE"
-
-          echo "Downloading Telegram IPA..."
+          echo "Downloading decrypted Telegram IPA..."
           curl -f -L -o telegram.ipa "https://updates.tdesktop.com/tios/Telegram.ipa" || \
           curl -f -L -o telegram.ipa "https://archive.org/download/telegram-ios/Telegram.ipa" || \
           curl -f -L -o telegram.ipa "https://github.com/TelegramMessenger/Telegram-iOS/releases/download/build-10.15/Telegram.ipa" || true
 
-      - name: Inject and Package IPA
+      - name: Inject Tweak and Package IPA
         run: |
+          git clone https://github.com/Al4ise/Azule.git "$HOME/Azule"
           DYLIB_PATH=$(find .theos/obj -name "*.dylib" | head -n 1)
-          echo "Found compiled dylib at: $DYLIB_PATH"
+          echo "Found dylib: $DYLIB_PATH"
 
           if [ -f "telegram.ipa" ] && [ -s "telegram.ipa" ]; then
-            echo "Injecting into Telegram IPA with Azule..."
-            bash ~/Azule/azule -i telegram.ipa -o output -f "$DYLIB_PATH" -n Larpgram
-            cp output/Larpgram.ipa ./Larpgram-Telegram.ipa
+            bash "$HOME/Azule/azule" -i telegram.ipa -o out -f "$DYLIB_PATH" -n Larpgram
+            cp out/Larpgram.ipa ./Larpgram-Telegram.ipa
           else
-            echo "Building ready-to-sideload IPA bundle..."
+            echo "Packaging IPA structure directly..."
             mkdir -p Payload/Telegram.app
             cp "$DYLIB_PATH" Payload/Telegram.app/Larpgram.dylib
             cat << 'EOF' > Payload/Telegram.app/Info.plist
@@ -76,18 +69,18 @@ EOF
             zip -r Larpgram-Telegram.ipa Payload
           fi
 
-      - name: Upload IPA Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Larpgram-Telegram-IPA
           path: Larpgram-Telegram.ipa
 
-      - name: Create Release
+      - name: Release IPA
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Larpgram Release v1.0.${{ github.run_number }}
+          name: Larpgram v1.0.${{ github.run_number }}
           files: Larpgram-Telegram.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
