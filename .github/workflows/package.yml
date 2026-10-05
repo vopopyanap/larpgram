@@ -18,7 +18,7 @@ jobs:
 
       - name: Install Theos and Dependencies
         run: |
-          brew install ldid dpkg
+          brew install ldid dpkg optool
           git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
 
@@ -30,13 +30,16 @@ jobs:
 
       - name: Download Official Telegram IPA
         run: |
-          curl -f -L -o telegram.ipa "https://updates.tdesktop.com/tios/Telegram.ipa" || \
-          curl -f -L -o telegram.ipa "https://archive.org/download/telegram-ios/Telegram.ipa" || true
+          echo "Downloading full official Telegram IPA (build-26855)..."
+          curl -f -L --retry 3 -o telegram.ipa "https://github.com/TelegramMessenger/Telegram-iOS/releases/download/build-26855/Telegram.ipa" || \
+          curl -f -L --retry 3 -o telegram.ipa "https://github.com/TelegramMessenger/Telegram-iOS/releases/download/build-26837/Telegram.ipa"
+          ls -lh telegram.ipa
 
       - name: Package IPA
         run: |
           chmod +x package_ipa.sh
           ./package_ipa.sh
+          ls -lh Larpgram-Telegram.ipa
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
