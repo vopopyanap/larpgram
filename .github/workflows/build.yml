@@ -2,15 +2,15 @@ name: Build Larpgram IPA
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
     runs-on: macos-14
+    permissions:
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -19,11 +19,11 @@ jobs:
         run: |
           brew install ldid dpkg
           git clone --recursive https://github.com/theos/theos.git ~/theos
-          echo "THEOS=~/theos" >> $GITHUB_ENV
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
 
       - name: Compile Larpgram Tweak (.dylib)
         run: |
-          export THEOS=~/theos
+          export THEOS=$HOME/theos
           make clean
           make FINALPACKAGE=1
 
@@ -33,10 +33,9 @@ jobs:
           git clone https://github.com/alexzielenski/optool.git ~/optool-src
           cd ~/optool-src && xcodebuild -project optool.xcodeproj -target optool -configuration Release
           sudo cp build/Release/optool /usr/local/bin/ || true
-          cd $GITHUB_WORKSPACE
+          cd "$GITHUB_WORKSPACE"
 
-          echo "Downloading official/decrypted Telegram..."
-          # Try download from Telegram or decrypted mirrors
+          echo "Downloading Telegram IPA..."
           curl -f -L -o telegram.ipa "https://updates.tdesktop.com/tios/Telegram.ipa" || \
           curl -f -L -o telegram.ipa "https://archive.org/download/telegram-ios/Telegram.ipa" || \
           curl -f -L -o telegram.ipa "https://github.com/TelegramMessenger/Telegram-iOS/releases/download/build-10.15/Telegram.ipa" || true
@@ -85,11 +84,10 @@ EOF
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main'
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Larpgram Release v1.0.${{ github.run_number }}
           files: Larpgram-Telegram.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
