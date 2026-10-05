@@ -11,27 +11,61 @@ if [ -f "telegram.ipa" ] && [ -s "telegram.ipa" ]; then
     echo "App directory is: $APP_DIR"
     mkdir -p "$APP_DIR/Frameworks"
 
-    # 1. Download substrate dylib directly as a simple dylib inside Frameworks
-    echo "Downloading substrate dylib..."
-    curl -sL "https://github.com/theos/lib/raw/master/libsubstrate.dylib" -o "$APP_DIR/Frameworks/libsubstrate.dylib" || \
-    curl -sL "https://github.com/CRKatri/ElleKit/releases/download/v1.1/ElleKit.dylib" -o "$APP_DIR/Frameworks/libsubstrate.dylib"
+    # 1. Provide a complete, valid CydiaSubstrate.framework bundle with Info.plist
+    echo "Creating valid CydiaSubstrate.framework with Info.plist..."
+    mkdir -p "$APP_DIR/Frameworks/CydiaSubstrate.framework"
+    curl -sL "https://github.com/theos/lib/raw/master/libsubstrate.dylib" -o "$APP_DIR/Frameworks/CydiaSubstrate.framework/CydiaSubstrate"
+    
+    cat << 'EOF' > "$APP_DIR/Frameworks/CydiaSubstrate.framework/Info.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>CydiaSubstrate</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.saurik.CydiaSubstrate</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>CydiaSubstrate</string>
+    <key>CFBundlePackageType</key>
+    <string>FMWK</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>MinimumOSVersion</key>
+    <string>12.0</string>
+</dict>
+</plist>
+EOF
 
-    # 2. Put Larpgram dylib inside Frameworks
+    # 2. Also keep libsubstrate.dylib flat copy
+    cp "$APP_DIR/Frameworks/CydiaSubstrate.framework/CydiaSubstrate" "$APP_DIR/Frameworks/libsubstrate.dylib"
+
+    # 3. Put Larpgram dylib inside Frameworks
     cp "$DYLIB_PATH" "$APP_DIR/Frameworks/Larpgram.dylib"
-
-    # 3. Change dependency path in Larpgram.dylib to point to @rpath/libsubstrate.dylib
     install_name_tool -id "@rpath/Larpgram.dylib" "$APP_DIR/Frameworks/Larpgram.dylib" || true
-    install_name_tool -change "/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate" "@rpath/libsubstrate.dylib" "$APP_DIR/Frameworks/Larpgram.dylib" || true
-    install_name_tool -change "/usr/lib/libsubstrate.dylib" "@rpath/libsubstrate.dylib" "$APP_DIR/Frameworks/Larpgram.dylib" || true
 
     # 4. Inject LC_LOAD_DYLIB into Telegram executable
     TARGET_BIN="$APP_DIR/Telegram"
-    echo "Injecting load command for libsubstrate and Larpgram into Telegram executable..."
-    optool install -c load -p "@rpath/libsubstrate.dylib" -t "$TARGET_BIN" || true
+    echo "Injecting load command for Larpgram into Telegram executable..."
     optool install -c load -p "@rpath/Larpgram.dylib" -t "$TARGET_BIN" || true
 
-    # 5. Pseudo-sign all injected dylibs and executable
+    # 5. Native ad-hoc code signing using codesign and ldid
+    echo "Signing binaries and frameworks..."
+    codesign -f -s - "$APP_DIR/Frameworks/CydiaSubstrate.framework" || true
+    codesign -f -s - "$APP_DIR/Frameworks/libsubstrate.dylib" || true
+    codesign -f -s - "$APP_DIR/Frameworks/Larpgram.dylib" || true
+    codesign -f -s - "$TARGET_BIN" || true
+
     if command -v ldid >/dev/null 2>&1; then
+        ldid -S "$APP_DIR/Frameworks/CydiaSubstrate.framework/CydiaSubstrate" || true
         ldid -S "$APP_DIR/Frameworks/libsubstrate.dylib" || true
         ldid -S "$APP_DIR/Frameworks/Larpgram.dylib" || true
         ldid -S "$TARGET_BIN" || true
