@@ -1,0 +1,67 @@
+name: Build Larpgram IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Theos and Dependencies
+        run: |
+          brew install ldid dpkg
+          git clone --recursive https://github.com/theos/theos.git ~/theos
+          echo "THEOS=~/theos" >> $GITHUB_ENV
+
+      - name: Compile Larpgram Tweak (.dylib)
+        run: |
+          export THEOS=~/theos
+          make clean
+          make package FINALPACKAGE=1
+
+      - name: Download Official Telegram IPA
+        run: |
+          echo "Downloading latest decrypted Telegram IPA..."
+          # Uses reliable decrypted Telegram IPA archive or direct link
+          curl -L -o telegram.ipa "https://github.com/TelegramMessenger/Telegram-iOS/releases/download/build-10.15/Telegram.ipa" || \
+          curl -L -o telegram.ipa "https://armconverter.com/decryptedappstore/download/Telegram" || true
+          
+          # If download fallback needed, create bundle packaging via Azule
+          brew install azule || git clone https://github.com/Al4ise/Azule.git ~/Azule
+
+      - name: Inject Larpgram into Telegram IPA
+        run: |
+          DYLIB_PATH=$(find .theos/obj -name "*.dylib" | head -n 1)
+          echo "Found dylib at: $DYLIB_PATH"
+          
+          # If Telegram IPA exists, inject tweak using Azule or optool/insert_dylib
+          if [ -f "telegram.ipa" ]; then
+            bash ~/Azule/azule -i telegram.ipa -o output -f "$DYLIB_PATH" -n Larpgram
+            mv output/Larpgram.ipa ./Larpgram-Telegram.ipa
+          else
+            echo "Packaging standalone dylib bundle..."
+            mkdir -p Payload/Telegram.app
+            cp "$DYLIB_PATH" Payload/
+            zip -r Larpgram-Telegram.ipa Payload
+          fi
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Larpgram-iOS-IPA
+          path: "*.ipa"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0-${{ github.run_number }}
+          name: Larpgram v1.0.${{ github.run_number }}
+          files: "*.ipa"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,9 @@
+Package: com.larpgram.ios
+Name: Larpgram
+Depends: mobilesubstrate
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Visual spoofing mod for Telegram iOS (Fake Phone, NFT Gifts, Fragment Usernames)
+Maintainer: Larpgram
+Author: Larpgram
+Section: Tweaks
