@@ -21,7 +21,11 @@
 
 - (void)donePressed {
     [[LarpgramConfig shared] save];
-    [self.navigationController popViewControllerAnimated:YES];
+    if (self.navigationController.viewControllers.count > 1) {
+        [self.navigationController popViewControllerAnimated:YES];
+    } else {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }
 }
 
 #pragma mark - Table View Data Source
@@ -42,7 +46,7 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     switch (section) {
-        case 0: return @"Toggle all Larpgram visual spoofing modifications.";
+        case 0: return @"Toggle Larpgram and HUD overlay button.";
         case 1: return @"Change your profile phone number to any custom or +888 anonymous number.";
         case 2: return @"Inject custom collectible/NFT usernames into your Telegram profile list.";
         case 3: return @"Inject custom limited/NFT gifts directly into your gifts tab.";
@@ -52,7 +56,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch (section) {
-        case 0: return 1;
+        case 0: return 2; // Master Toggle, Floating Button Toggle
         case 1: return 2; // Toggle, Input
         case 2: return 2; // Toggle, List/Input
         case 3: return 2; // Toggle, Count info
@@ -72,11 +76,19 @@
     LarpgramConfig *config = [LarpgramConfig shared];
 
     if (indexPath.section == 0) {
-        cell.textLabel.text = @"Enable Larpgram";
-        UISwitch *sw = [[UISwitch alloc] init];
-        sw.on = config.isEnabled;
-        [sw addTarget:self action:@selector(masterSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-        cell.accessoryView = sw;
+        if (indexPath.row == 0) {
+            cell.textLabel.text = @"Enable Larpgram";
+            UISwitch *sw = [[UISwitch alloc] init];
+            sw.on = config.isEnabled;
+            [sw addTarget:self action:@selector(masterSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+            cell.accessoryView = sw;
+        } else {
+            cell.textLabel.text = @"Floating ⚡ Button";
+            UISwitch *sw = [[UISwitch alloc] init];
+            sw.on = config.showFloatingButton;
+            [sw addTarget:self action:@selector(floatingBtnSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+            cell.accessoryView = sw;
+        }
     } else if (indexPath.section == 1) {
         if (indexPath.row == 0) {
             cell.textLabel.text = @"Spoof Phone Number";
@@ -168,6 +180,11 @@
 
 - (void)masterSwitchChanged:(UISwitch *)sender {
     [LarpgramConfig shared].isEnabled = sender.on;
+    [[LarpgramConfig shared] save];
+}
+
+- (void)floatingBtnSwitchChanged:(UISwitch *)sender {
+    [LarpgramConfig shared].showFloatingButton = sender.on;
     [[LarpgramConfig shared] save];
 }
 

@@ -16,6 +16,7 @@
     self = [super init];
     if (self) {
         _isEnabled = YES;
+        _showFloatingButton = YES;
         _spoofPhone = YES;
         _fakePhone = @"+888 0777 9999";
         _spoofUsernames = YES;
@@ -48,6 +49,9 @@
     if ([defaults objectForKey:@"larpgram_enabled"] != nil) {
         self.isEnabled = [defaults boolForKey:@"larpgram_enabled"];
     }
+    if ([defaults objectForKey:@"larpgram_show_floating_btn"] != nil) {
+        self.showFloatingButton = [defaults boolForKey:@"larpgram_show_floating_btn"];
+    }
     if ([defaults objectForKey:@"larpgram_spoof_phone"] != nil) {
         self.spoofPhone = [defaults boolForKey:@"larpgram_spoof_phone"];
     }
@@ -72,6 +76,7 @@
 - (void)save {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setBool:self.isEnabled forKey:@"larpgram_enabled"];
+    [defaults setBool:self.showFloatingButton forKey:@"larpgram_show_floating_btn"];
     [defaults setBool:self.spoofPhone forKey:@"larpgram_spoof_phone"];
     [defaults setObject:self.fakePhone forKey:@"larpgram_fake_phone"];
     [defaults setBool:self.spoofUsernames forKey:@"larpgram_spoof_usernames"];

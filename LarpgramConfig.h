@@ -16,6 +16,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)shared;
 
 @property (nonatomic, assign) BOOL isEnabled;
+@property (nonatomic, assign) BOOL showFloatingButton;
 
 // Fake Phone Number
 @property (nonatomic, assign) BOOL spoofPhone;
