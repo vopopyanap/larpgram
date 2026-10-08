@@ -58,9 +58,11 @@
                 }
             }
         }
-    }
     if (!keyWindow) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         keyWindow = [UIApplication sharedApplication].keyWindow;
+#pragma clang diagnostic pop
     }
 
     UIViewController *topVC = keyWindow.rootViewController;
